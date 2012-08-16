@@ -108,6 +108,7 @@ class KoGoLinter(object):
             p = process.ProcessOpen(compilation_command, cwd=request.cwd, env=env, stdin=None)
             output, error = p.communicate()
             log.debug("output: output:[%s], error:[%s]", output, error)
+            output = output + error
             retval = p.returncode
         finally:
             os.unlink(src_path)
@@ -115,10 +116,12 @@ class KoGoLinter(object):
                 os.unlink(dst_path)
             except OSError:
                 pass
-        if error:
-            error = error.replace(src_name, request.koDoc.baseName)
-            log.debug("%s", error)
-            for line in error.splitlines():
+        if output:
+            output = output.replace(src_name, request.koDoc.baseName)
+            log.debug("%s", output)
+            for line in output.splitlines():
+                if line[0] == '#':
+                    continue
                 results.addResult(self._buildResult(text, line, request.koDoc.baseName))
         return results
 
