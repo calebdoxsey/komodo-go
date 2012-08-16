@@ -43,6 +43,7 @@ import process
 import tempfile
 import subprocess
 import koprocessutils
+import uuid
 
 from xpcom import components
 
@@ -50,8 +51,7 @@ from koLintResult import KoLintResult
 from koLintResults import koLintResults
 
 log = logging.getLogger("koGoLanguage")
-#log.setLevel(logging.DEBUG)
-
+log.setLevel(logging.DEBUG)
 
 class KoGoLinter(object):
     _com_interfaces_ = [components.interfaces.koILinter]
@@ -87,15 +87,18 @@ class KoGoLinter(object):
         if not text.strip():
             return None
         # consider adding lint preferences? maybe for compiler selection, paths, etc?
+        
+        n = uuid.uuid1()
 
         # Save the current buffer to a temporary file.
-        _, source_filename = tempfile.mkstemp(prefix='~kogo', suffix='.go', dir=request.cwd)
-        _, dest_filename = tempfile.mkstemp()
-        source_file_shortname = os.path.basename(source_filename)
+        src_name = n.hex + ".go"
+        src_path = os.path.join(request.cwd, src_name)
+        dst_name = n.hex + ".out"
+        dst_path = os.path.join(request.cwd, dst_name)
 
-        compilation_command = ['go', 'build', '-o', dest_filename, source_file_shortname]
+        compilation_command = ['go', 'build', '-o', dst_name, src_name]
         try:
-            temp_source_file = open(source_filename, 'w')
+            temp_source_file = open(src_path, 'wb')
             temp_source_file.write(text)
             temp_source_file.close()
             env = koprocessutils.getUserEnv()
@@ -107,18 +110,16 @@ class KoGoLinter(object):
             log.debug("output: output:[%s], error:[%s]", output, error)
             retval = p.returncode
         finally:
-            os.unlink(source_filename)
+            os.unlink(src_path)
             try:
-                os.unlink(dest_filename)
+                os.unlink(dst_path)
             except OSError:
                 pass
-        if retval != 0:
-            if output:
-                output = output.replace(source_file_shortname, request.koDoc.baseName)
-                for line in output.splitlines()[1:]:
-                    results.addResult(self._buildResult(text, line, request.koDoc.baseName))
-            else:
-                    results.addResult(self._buildResult(text, "Unexpected error"))
+        if error:
+            error = error.replace(src_name, request.koDoc.baseName)
+            log.debug("%s", error)
+            for line in error.splitlines():
+                results.addResult(self._buildResult(text, line, request.koDoc.baseName))
         return results
 
     def _buildResult(self, text, message, filename=None):
