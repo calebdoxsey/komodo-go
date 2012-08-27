@@ -90,17 +90,11 @@ class KoGoLinter(object):
         
         n = uuid.uuid1()
 
-        # Save the current buffer to a temporary file.
-        src_name = n.hex + ".go"
-        src_path = os.path.join(request.cwd, src_name)
         dst_name = n.hex + ".out"
         dst_path = os.path.join(request.cwd, dst_name)
 
-        compilation_command = ['go', 'build', '-o', dst_name, src_name]
+        compilation_command = ['go', 'build', '-o', dst_name]
         try:
-            temp_source_file = open(src_path, 'wb')
-            temp_source_file.write(text)
-            temp_source_file.close()
             env = koprocessutils.getUserEnv()
             results = koLintResults()
 
@@ -111,14 +105,11 @@ class KoGoLinter(object):
             output = output + error
             retval = p.returncode
         finally:
-            os.unlink(src_path)
             try:
                 os.unlink(dst_path)
             except OSError:
                 pass
         if output:
-            output = output.replace(src_name, request.koDoc.baseName)
-            log.debug("%s", output)
             for line in output.splitlines():
                 if line[0] == '#':
                     continue
